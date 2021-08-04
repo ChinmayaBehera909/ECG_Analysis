@@ -21,11 +21,11 @@ class Signal:
     base_time = dt.datetime.now()
     units= 'mv'
 
-    def __init__(self, data, fs, sig_type, sig_len, base_time, units):
+    def __init__(self, data, fs, sig_type, base_time, units):
         
         self.data = data
         self.fs = fs
-        self.sig_len = sig_len
+        self.sig_len = len(data)
         self.base_time = base_time
         self.sig_type = sig_type
         self.units = units
@@ -1430,8 +1430,3 @@ class signalTools:
             zerocrossings = np.nonzero(np.abs(df) > 0)[0]
 
         return zerocrossings
-
-
-    ### handle all the non required functions to make them globally available
-    ### make sure that the signal class methods include on the primary signal functions
-    ### look into inheritance for adding a signal.peaks class and its attributes
