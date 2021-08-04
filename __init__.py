@@ -11,6 +11,7 @@ import matplotlib
 from readECG import *
 from signal import *
 from misc import *
+from stats import *
 
 
 # Info
