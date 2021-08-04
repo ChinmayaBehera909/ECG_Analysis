@@ -12,6 +12,7 @@ from readECG import *
 from signal import *
 from misc import *
 from stats import *
+from ecg import *
 
 
 # Info
