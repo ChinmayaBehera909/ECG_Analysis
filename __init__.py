@@ -10,6 +10,7 @@ import matplotlib
 # Export functions
 from readECG import *
 from signal import *
+from misc import *
 
 
 # Info
