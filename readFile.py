@@ -35,8 +35,14 @@ class readFile:
         import numpy as np
         try:
             record = wfdb.rdsamp(self.path)
+            data = np.asarray(record[0], dtype='float32')
 
-            return np.asarray(record[0], dtype='float32'), record[1]
+            if len(record[1]['sig_name']) != 1:
+                    print('Multiple channels detected:', record[1]['sig_name'])
+                    ch_name = int(input('Select the channel number you want to proceed with:'))
+                    data=data[:,ch_name]
+
+            return data, record[1]
 
         except Exception as e:
             print('ERROR:',e)
