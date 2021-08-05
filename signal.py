@@ -8,24 +8,24 @@ import datetime as dt
 import scipy.ndimage
 from .stats import fit_loess
 
-from .misc import as_vector, find_closest
+from .misc import as_vector, find_closest 
 from .stats import standardize
 
 
 class Signal:
 
     data = None
-    fs = 0.0
-    sig_type = 'sig'
-    sig_len = 0
-    base_time = dt.datetime.now()
-    units= 'mv'
+    fs=0.0
+    sig_len=0
+    base_time = None
+    sig_type = None
+    units = None
 
-    def __init__(self, data, fs, sig_type, base_time, units):
+    def __init__(self, data = None, fs=0.0, sig_len=0, base_time = None, sig_type = None, units = None):
         
         self.data = data
         self.fs = fs
-        self.sig_len = len(data)
+        self.sig_len = sig_len
         self.base_time = base_time
         self.sig_type = sig_type
         self.units = units
@@ -91,7 +91,6 @@ class Signal:
         else:
             raise ValueError("SIGNAL ERROR: signal_binarize() - 'method' should be one of 'threshold' or 'mixture'.")
         return binary
-
 
 
     def signal_filter(self, lowcut=None, highcut=None, method="butterworth", order=2, window_size="default", powerline=50):
@@ -315,7 +314,6 @@ class Signal:
         return filtered
 
 
-
     def signal_findpeaks(self, height_min=None, height_max=None, relative_height_min=None, relative_height_max=None, relative_mean=True, relative_median=False, relative_max=False ):
         """Find peaks in a signal.
 
@@ -484,58 +482,9 @@ class Signal:
         info["Offsets"] = _signal_findpeaks_findbase(info["Peaks"], self.data, what="offset")
 
         return info
-
-
-
-class Peaks(Signal):
-
-    peaks = None
-    signal = None
-
-    def __init__(self, peaks):
-        self.signal = Signal()
-        self.peaks = peaks
-
-    
-    def _signal_formatpeaks_sanitize(peaks, key="Peaks"): 
-            # Attempt to retrieve column.
-            if isinstance(peaks, tuple):
-                if isinstance(peaks[0], (dict, pd.DataFrame)):
-                    peaks = peaks[0]
-                elif isinstance(peaks[1], dict):
-                    peaks = peaks[1]
-                else:
-                    peaks = peaks[0]
-
-            if isinstance(peaks, pd.DataFrame):
-                col = [col for col in peaks.columns if key in col]
-                if len(col) == 0:
-                    raise TypeError(
-                        "EPK error: _signal_formatpeaks(): wrong type of input ",
-                        "provided. Please provide indices of peaks.",
-                    )
-                peaks_signal = peaks[col[0]].values
-                peaks = np.where(peaks_signal == 1)[0]
-
-            if isinstance(peaks, dict):
-                col = [col for col in list(peaks.keys()) if key in col]
-                if len(col) == 0:
-                    raise TypeError(
-                        "EPK error: _signal_formatpeaks(): wrong type of input ",
-                        "provided. Please provide indices of peaks.",
-                    )
-                peaks = peaks[col[0]]
-
-            # Retrieve length.
-            try:  # Detect if single peak
-                len(peaks)
-            except TypeError:
-                peaks = np.array([peaks])
-
-            return peaks
         
 
-    def signal_fixpeaks(self, iterative=True, interval_min=None, interval_max=None, relative_interval_min=None, relative_interval_max=None, robust=False, method="Kubios"):
+    def signal_fixpeaks(self, peaks, iterative=True, interval_min=None, interval_max=None, relative_interval_min=None, relative_interval_max=None, robust=False, method="Kubios"):
         """Correct erroneous peak placements.
 
         Identify and correct erroneous peak placements based on outliers in peak-to-peak differences (period).
@@ -581,8 +530,7 @@ class Peaks(Signal):
         #                                    METHODS
         # =============================================================================
 
-        peaks = self.peaks
-        sampling_rate = self.signal.fs
+        sampling_rate = self.fs
 
         # neurokit
         def _signal_fixpeaks_neurokit(peaks, sampling_rate, interval_min=None, interval_max=None, relative_interval_min=None,
@@ -600,7 +548,7 @@ class Peaks(Signal):
             """kubios method."""
 
             # Get corrected peaks and normal-to-normal intervals.
-            artifacts, subspaces = _find_artifacts(peaks, sampling_rate=sampling_rate)
+            artifacts, _ = _find_artifacts(peaks, sampling_rate=sampling_rate)
             peaks_clean = _correct_artifacts(artifacts, peaks)
 
             if iterative:
@@ -617,7 +565,7 @@ class Peaks(Signal):
 
                     previous_diff = n_artifacts_previous - n_artifacts_current
 
-                    artifacts, subspaces = _find_artifacts(peaks_clean, sampling_rate=sampling_rate)
+                    artifacts, _ = _find_artifacts(peaks_clean, sampling_rate=sampling_rate)
                     peaks_clean = _correct_artifacts(artifacts, peaks_clean)
 
                     n_artifacts_previous = n_artifacts_current
@@ -867,11 +815,11 @@ class Peaks(Signal):
                 return peaks
 
             if interval_min is not None:
-                interval = self.signal_period(peaks, sampling_rate=sampling_rate, desired_length=None)
+                interval = self.signal_period(peaks, desired_length=None)
                 peaks = peaks[interval > interval_min]
 
             if relative_interval_min is not None:
-                interval = self.signal_period(peaks, sampling_rate=sampling_rate, desired_length=None)
+                interval = self.signal_period(peaks, desired_length=None)
                 peaks = peaks[standardize(interval, robust=robust) > relative_interval_min]
 
             return peaks
@@ -884,11 +832,11 @@ class Peaks(Signal):
             continue_loop = True
             while continue_loop is True:
                 if interval_max is not None:
-                    interval = self.signal_period(peaks, sampling_rate=sampling_rate, desired_length=None)
+                    interval = self.signal_period(peaks, desired_length=None)
                     peaks, continue_loop = _interpolate_missing(peaks, interval, interval_max, sampling_rate)
 
                 if relative_interval_max is not None:
-                    interval = self.signal_period(peaks, sampling_rate=sampling_rate, desired_length=None)
+                    interval = self.signal_period(peaks, desired_length=None)
                     interval = standardize(interval, robust=robust)
                     peaks, continue_loop = _interpolate_missing(peaks, interval, interval_max, sampling_rate)
 
@@ -923,8 +871,6 @@ class Peaks(Signal):
         #                                EXECUTION
         # =============================================================================
 
-        # Format input
-        peaks = self._signal_formatpeaks_sanitize(peaks)
 
         # If method Kubios
         if method.lower() == "kubios":
@@ -943,61 +889,7 @@ class Peaks(Signal):
         )
 
 
-    def signal_formatpeaks(self, info, desired_length, peak_indices=None):
-        """Transforms an peak-info dict to a signal of given length."""
-
-        # =============================================================================
-        #                                 UTILITIES
-        # =============================================================================
-
-
-        def _signal_from_indices(indices, desired_length=None, value=1):
-            """Generates array of 0 and given values at given indices.
-
-            Used in *_findpeaks to transform vectors of peak indices to signal.
-
-            """
-            signal = np.zeros(desired_length, dtype=np.int)
-
-            if isinstance(indices, list) and (not indices):    # skip empty lists
-                return signal
-            if isinstance(indices, np.ndarray) and (indices.size == 0):    # skip empty arrays
-                return signal
-
-            # Force indices as int
-            if isinstance(indices[0], np.float):
-                indices = indices[~np.isnan(indices)].astype(np.int)
-
-            if isinstance(value, (int, float)):
-                signal[indices] = value
-            else:
-                if len(value) != len(indices):
-                    raise ValueError(
-                        "EPK error: _signal_from_indices(): The number of values "
-                        "is different from the number of indices."
-                    )
-                signal[indices] = value
-            return signal
-
-        
-        # =============================================================================
-        #                                 EXECUTION
-        # =============================================================================
-
-        if peak_indices is None:
-            peak_indices = [key for key in info.keys() if "Peaks" in key]
-
-        signals = {}
-        for feature, values in info.items():
-            if any(x in str(feature) for x in ["Peak", "Onset", "Offset", "Trough", "Recovery"]):
-                signals[feature] = _signal_from_indices(values, desired_length, 1)
-            else:
-                signals[feature] = _signal_from_indices(peak_indices, desired_length, values)
-        signals = pd.DataFrame(signals)
-        return signals
-
-
-    def signal_period(self, peaks, sampling_rate=1000, desired_length=None, interpolation_method="monotone_cubic"):
+    def signal_period(self, peaks, desired_length=None, interpolation_method="monotone_cubic"):
         """Calculate signal period from a series of peaks.
 
         Parameters
@@ -1028,8 +920,6 @@ class Peaks(Signal):
             A vector containing the period.
 
         """
-        peaks = self._signal_formatpeaks_sanitize(peaks)
-
         # Sanity checks.
         if np.size(peaks) <= 3:
             warn(
@@ -1043,17 +933,17 @@ class Peaks(Signal):
         # Calculate period in sec, based on peak to peak difference and make sure
         # that rate has the same number of elements as peaks (important for
         # interpolation later) by prepending the mean of all periods.
-        period = np.ediff1d(peaks, to_begin=0) / sampling_rate
+        period = np.ediff1d(peaks, to_begin=0) / self.fs
         period[0] = np.mean(period[1:])
 
         # Interpolate all statistics to desired length.
         if desired_length is not None:
-            period = self.signal_interpolate(peaks, period, x_new=np.arange(desired_length), method=interpolation_method)
+            period = signal_interpolate(peaks, period, x_new=np.arange(desired_length), method=interpolation_method)
 
         return period
 
 
-    def signal_rate(self, peaks, sampling_rate=1000, desired_length=None, interpolation_method="quadratic"):
+    def signal_rate(self, peaks, desired_length=None, interpolation_method="quadratic"):
         """Calculate signal rate from a series of peaks.
 
         This function can also be called either via ``ecg_rate()``, ```ppg_rate()`` or ``rsp_rate()``
@@ -1087,82 +977,13 @@ class Peaks(Signal):
             A vector containing the rate.
 
         """
-        period = self.signal_period(peaks, sampling_rate, desired_length, interpolation_method)
+        period = self.signal_period(peaks, desired_length, interpolation_method)
         rate = 60 / period
 
         return rate
 
 
-
-class signalTools:
-
-    def signal_interpolate(self, x_values, y_values, x_new=None, method="quadratic"):
-        """Interpolate a signal.
-
-        Interpolate a signal using different methods.
-
-        Parameters
-        ----------
-        x_values : Union[list, np.array, pd.Series]
-            The samples corresponding to the values to be interpolated.
-        y_values : Union[list, np.array, pd.Series]
-            The values to be interpolated.
-        x_new : Union[list, np.array, pd.Series] or int
-            The samples at which to interpolate the y_values. Samples before the first value in x_values
-            or after the last value in x_values will be extrapolated.
-            If an integer is passed, nex_x will be considered as the desired length of the interpolated
-            signal between the first and the last values of x_values. No extrapolation will be done for values
-            before or after the first and the last valus of x_values.
-        method : str
-            Method of interpolation. Can be 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic',
-            'previous', 'next' or 'monotone_cubic'.  'zero', 'slinear', 'quadratic' and 'cubic' refer to
-            a spline interpolation of zeroth, first, second or third order; 'previous' and 'next' simply
-            return the previous or next value of the point) or as an integer specifying the order of the
-            spline interpolator to use.
-            See https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html
-            for details on the 'monotone_cubic' method.
-
-        Returns
-        -------
-        array
-            Vector of interpolated samples.
-
-        """
-        # Sanity checks
-        if len(x_values) != len(y_values):
-            raise ValueError("SIGNAL ERROR: signal_interpolate() - x_values and y_values must be of the same length.")
-
-        if isinstance(x_new, int):
-            if len(x_values) == x_new:
-                return y_values
-        else:
-            if len(x_values) == len(x_new):
-                return y_values
-
-        monotone_cubic = isinstance(method, str) and method.lower() == "monotone_cubic"  # bool
-
-        if monotone_cubic:
-            interpolation_function = scipy.interpolate.PchipInterpolator(x_values, y_values, extrapolate=True)
-        else:
-            interpolation_function = scipy.interpolate.interp1d(
-                x_values, y_values, kind=method, bounds_error=False, fill_value=([y_values[0]], [y_values[-1]])
-            )
-
-        if isinstance(x_new, int):
-            x_new = np.linspace(x_values[0], x_values[-1], x_new)
-
-        interpolated = interpolation_function(x_new)
-
-        if monotone_cubic:
-            # Swap out the cubic extrapolation of out-of-bounds segments generated by
-            # scipy.interpolate.PchipInterpolator for constant extrapolation akin to the behavior of
-            # scipy.interpolate.interp1d with fill_value=([y_values[0]], [y_values[-1]].
-            interpolated[: x_values[0]] = interpolated[x_values[0]]
-            interpolated[x_values[-1] :] = interpolated[x_values[-1]]
-
-        return interpolated
-
-    def signal_resample(self, signal, desired_length=None, sampling_rate=None, desired_sampling_rate=None, method="interpolation" ):
+    def signal_resample(self, desired_length=None, desired_sampling_rate=None, method="interpolation" ):
         """Resample a continuous signal to a different length or sampling rate.
 
         Up- or down-sample a signal. The user can specify either a desired length for the vector, or input
@@ -1258,49 +1079,29 @@ class signalTools:
         # =============================================================================
 
         if desired_length is None:
-            desired_length = int(np.round(len(signal) * desired_sampling_rate / sampling_rate))
+            desired_length = int(np.round(len(self.data) * desired_sampling_rate / self.fs))
             #print('Desired length:',desired_length)
 
         # Sanity checks
-        if len(signal) == desired_length:
-            return signal
+        if len(self.data) == desired_length:
+            return self.data
 
         # Resample
         if method.lower() == "fft":
-            resampled = _resample_fft(signal, desired_length)
+            resampled = _resample_fft(self.data, desired_length)
         elif method.lower() == "poly":
-            resampled = _resample_poly(signal, desired_length)
+            resampled = _resample_poly(self.data, desired_length)
         elif method.lower() == "numpy":
-            resampled = _resample_numpy(signal, desired_length)
+            resampled = _resample_numpy(self.data, desired_length)
         elif method.lower() == "pandas":
-            resampled = _resample_pandas(signal, desired_length)
+            resampled = _resample_pandas(self.data, desired_length)
         else:
-            resampled = _resample_interpolation(signal, desired_length)
+            resampled = _resample_interpolation(self.data, desired_length)
 
         return resampled
 
-    def signal_sanitize(self, signal):
-        """Reset indexing for Pandas Series
 
-        Parameters
-        ----------
-        signal : Series
-            The indexed input signal (pandas set_index())
-
-        Returns
-        -------
-        Series
-            The default indexed signal
-
-        """
-
-        # Series check for non-default index
-        if type(signal) is pd.Series and type(signal.index) != pd.RangeIndex:
-            return signal.reset_index(drop=True)
-
-        return signal
-
-    def signal_smooth(self, signal, method="convolution", kernel="boxzen", size=10, alpha=0.1):
+    def signal_smooth(self, method="convolution", kernel="boxzen", size=10, alpha=0.1):
         """Signal smoothing.
 
         Signal smoothing can be achieved using either the convolution of a filter kernel with the input
@@ -1329,7 +1130,7 @@ class signalTools:
             Smoothed signal.
 
 
-    
+
         """
 
             
@@ -1367,10 +1168,8 @@ class signalTools:
         #                                  EXECUTION
         # =============================================================================
 
-        if isinstance(signal, pd.Series):
-            signal = signal.values
 
-        length = len(signal)
+        length = len(self.data)
 
         if isinstance(kernel, str) is False:
             raise TypeError("EPK error: signal_smooth(): 'kernel' should be a string.")
@@ -1383,27 +1182,28 @@ class signalTools:
 
         # LOESS
         if method in ["loess", "lowess"]:
-            smoothed = fit_loess(signal, alpha=alpha)
+            smoothed = fit_loess(self.data, alpha=alpha)
 
         # Convolution
         else:
             if kernel == "boxzen":
                 # hybrid method
                 # 1st pass - boxcar kernel
-                x = _signal_smoothing(signal, kernel="boxcar", size=size)
+                x = _signal_smoothing(self.data, kernel="boxcar", size=size)
 
                 # 2nd pass - parzen kernel
                 smoothed = _signal_smoothing(x, kernel="parzen", size=size)
 
             elif kernel == "median":
-                smoothed = _signal_smoothing_median(signal, size)
+                smoothed = _signal_smoothing_median(self.data, size)
 
             else:
-                smoothed = _signal_smoothing(signal, kernel=kernel, size=size)
+                smoothed = _signal_smoothing(self.data, kernel=kernel, size=size)
 
         return smoothed
 
-    def signal_zerocrossings(self, signal, direction="both"):
+
+    def signal_zerocrossings(self, direction="both"):
         """Locate the indices where the signal crosses zero.
 
         Note that when the signal crosses zero between two points, the first index is returned.
@@ -1421,7 +1221,7 @@ class signalTools:
             Vector containing the indices of zero crossings.
 
         """
-        df = np.diff(np.sign(signal))
+        df = np.diff(np.sign(self.data))
         if direction in ["positive", "up"]:
             zerocrossings = np.where(df > 0)[0]
         elif direction in ["negative", "down"]:
@@ -1430,3 +1230,72 @@ class signalTools:
             zerocrossings = np.nonzero(np.abs(df) > 0)[0]
 
         return zerocrossings
+
+
+
+def signal_interpolate(x_values, y_values, x_new=None, method="quadratic"):
+    """Interpolate a signal.
+
+    Interpolate a signal using different methods.
+
+    Parameters
+    ----------
+    x_values : Union[list, np.array, pd.Series]
+        The samples corresponding to the values to be interpolated.
+    y_values : Union[list, np.array, pd.Series]
+        The values to be interpolated.
+    x_new : Union[list, np.array, pd.Series] or int
+        The samples at which to interpolate the y_values. Samples before the first value in x_values
+        or after the last value in x_values will be extrapolated.
+        If an integer is passed, nex_x will be considered as the desired length of the interpolated
+        signal between the first and the last values of x_values. No extrapolation will be done for values
+        before or after the first and the last valus of x_values.
+    method : str
+        Method of interpolation. Can be 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic',
+        'previous', 'next' or 'monotone_cubic'.  'zero', 'slinear', 'quadratic' and 'cubic' refer to
+        a spline interpolation of zeroth, first, second or third order; 'previous' and 'next' simply
+        return the previous or next value of the point) or as an integer specifying the order of the
+        spline interpolator to use.
+        See https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html
+        for details on the 'monotone_cubic' method.
+
+    Returns
+    -------
+    array
+        Vector of interpolated samples.
+
+    """
+    # Sanity checks
+    if len(x_values) != len(y_values):
+        raise ValueError("SIGNAL ERROR: signal_interpolate() - x_values and y_values must be of the same length.")
+
+    if isinstance(x_new, int):
+        if len(x_values) == x_new:
+            return y_values
+    else:
+        if len(x_values) == len(x_new):
+            return y_values
+
+    monotone_cubic = isinstance(method, str) and method.lower() == "monotone_cubic"  # bool
+
+    if monotone_cubic:
+        interpolation_function = scipy.interpolate.PchipInterpolator(x_values, y_values, extrapolate=True)
+    else:
+        interpolation_function = scipy.interpolate.interp1d(
+            x_values, y_values, kind=method, bounds_error=False, fill_value=([y_values[0]], [y_values[-1]])
+        )
+
+    if isinstance(x_new, int):
+        x_new = np.linspace(x_values[0], x_values[-1], x_new)
+
+    interpolated = interpolation_function(x_new)
+
+    if monotone_cubic:
+        # Swap out the cubic extrapolation of out-of-bounds segments generated by
+        # scipy.interpolate.PchipInterpolator for constant extrapolation akin to the behavior of
+        # scipy.interpolate.interp1d with fill_value=([y_values[0]], [y_values[-1]].
+        interpolated[: x_values[0]] = interpolated[x_values[0]]
+        interpolated[x_values[-1] :] = interpolated[x_values[-1]]
+
+    return interpolated
+
