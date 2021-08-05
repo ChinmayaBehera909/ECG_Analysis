@@ -5,15 +5,11 @@ import numpy as np
 import pandas as pd
 import scipy
 import sklearn
-import matplotlib
 
 # Export functions
-from readECG import *
-from signal import *
-from misc import *
-from stats import *
-from ecg import *
-
+from .signal import *
+from .misc import *
+from .readFile import *
 
 # Info
 __version__ = "1.0.0"
@@ -54,7 +50,6 @@ def version(silent=False):
             "\n- Pandas: " + pd.__version__,
             "\n- SciPy: " + scipy.__version__,
             "\n- sklearn: " + sklearn.__version__,
-            "\n- matplotlib: " + matplotlib.__version__,
         )
     else:
         return __version__
