@@ -18,15 +18,17 @@ class Signal:
     fs=0.0
     sig_len=0
     base_time = None
+    base_date = None
     sig_type = None
     units = None
 
-    def __init__(self, data = None, fs=0.0, sig_len=0, base_time = None, sig_type = None, units = None):
+    def __init__(self, data = None, fs=0.0, sig_len=0, base_time = None, base_date = None, sig_type = None, units = None):
         
         self.data = data
         self.fs = fs
         self.sig_len = sig_len
         self.base_time = base_time
+        self.base_date = base_date
         self.sig_type = sig_type
         self.units = units
 
