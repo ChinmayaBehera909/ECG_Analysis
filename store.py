@@ -1,16 +1,15 @@
 import numpy as np
 import json
 
-def milli_to_hms(millis):
+def milli_to_hms(seconds):
 
-    millis = int(millis)
-    seconds=(millis/1000)%60
-    seconds = int(seconds)
-    minutes=(millis/(1000*60))%60
-    minutes = int(minutes)
-    hours=(millis/(1000*60*60))%24
+    seconds = seconds % (24 * 3600)
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
 
-    x = str(hours)+":"+str(minutes)+":"+str(seconds)
+    x = str(int(hours))+":"+str(int(minutes))+":"+str(int(seconds))
     return x
 
 
@@ -44,7 +43,7 @@ def storeData(path, ecgObj, fileObj):
         'Recording_Type': ecgObj.sig_type,
         'Recording_Date': ecgObj.base_date.strftime("%m/%d/%Y"),
         'Recording_Time': ecgObj.base_time.strftime("%H:%M:%S"),
-        'Recording_Duration': milli_to_hms(ecgObj.fs*ecgObj.sig_len),
+        'Recording_Duration': milli_to_hms(ecgObj.sig_len/ecgObj.fs),
         'Recording_FS': ecgObj.fs
     }
     json_object = json.dumps(meta, indent = 4)
