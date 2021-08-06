@@ -9,8 +9,8 @@ class ecg(Signal):
     rate = None
 
     def __init__(self, rpeaks = None, ecg_info ={}, ecg_templates = None, rate = None,
-     data = None, fs=0.0, sig_len=0, base_time = None, sig_type = None, units = None ):
-        Signal.__init__(self, data, fs, sig_len, base_time, sig_type, units )
+     data = None, fs=0.0, sig_len=0, base_time = None, base_date = None, sig_type = None, units = None ):
+        Signal.__init__(self, data, fs, sig_len, base_time, base_date, sig_type, units )
         self.rpeaks = rpeaks
         self.ecg_info = ecg_info
         self.ecg_templates = ecg_templates
