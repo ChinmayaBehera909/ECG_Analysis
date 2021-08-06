@@ -1034,7 +1034,8 @@ class ecg(Signal):
             if heart_rate is not None:
                 heart_rate = np.mean(heart_rate)
             if rpeaks is not None:
-                heart_rate = np.mean(self.signal_rate(self.peaks, desired_length=desired_length))
+                self.rate = self.signal_rate(self.peaks, desired_length=desired_length)
+                heart_rate = np.mean(self.rate)
 
             # Modulator
             m = heart_rate / 60
