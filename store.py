@@ -1,5 +1,6 @@
 import numpy as np
 import json
+import os
 
 def secs_to_hms(seconds):
 
@@ -14,6 +15,13 @@ def secs_to_hms(seconds):
 
 
 def storeData(path, ecgObj, fileObj):
+
+    try:
+        path = os.join(path, fileObj.fileID)
+        os.mkdir(path)
+    except Exception as e:
+        print('OS ERROR:', e)
+        return
 
     #store cleaned signal
     np.save(path+fileObj.fileID+'.npy',ecgObj.data)
