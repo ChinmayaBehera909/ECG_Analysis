@@ -998,7 +998,7 @@ class ecg(Signal):
             #Removing repeated peaks
             _, peaks = Check_repeat(peaks)
 
-        self.peaks = peaks
+        self.rpeaks = peaks
 
 
     def ecg_segment(self):
@@ -1034,7 +1034,7 @@ class ecg(Signal):
             if heart_rate is not None:
                 heart_rate = np.mean(heart_rate)
             if rpeaks is not None:
-                self.rate = self.signal_rate(self.peaks, desired_length=desired_length)
+                self.rate = self.signal_rate(self.rpeaks, desired_length=desired_length)
                 heart_rate = np.mean(self.rate)
 
             # Modulator
@@ -1052,9 +1052,9 @@ class ecg(Signal):
 
             return epochs_start, epochs_end
 
-        epochs_start, epochs_end = _ecg_segment_window(rpeaks=self.peaks, sampling_rate=self.fs, desired_length=self.sig_len)
+        epochs_start, epochs_end = _ecg_segment_window(rpeaks=self.rpeaks, sampling_rate=self.fs, desired_length=self.sig_len)
 
-        heartbeats = epochs_create(self.data, self.peaks, sampling_rate=self.fs, epochs_start=epochs_start, epochs_end=epochs_end )
+        heartbeats = epochs_create(self.data, self.rpeaks, sampling_rate=self.fs, epochs_start=epochs_start, epochs_end=epochs_end )
 
 
         heartbeats_plot = epochs_to_df(heartbeats)
@@ -1675,9 +1675,9 @@ class ecg(Signal):
 
         method = method.lower()  # remove capitalised letters
         if method in ["cwt", "continuous wavelet transform"]:
-            waves = _ecg_delineator_cwt(self.data, rpeaks=self.peaks, sampling_rate=self.fs)
+            waves = _ecg_delineator_cwt(self.data, rpeaks=self.rpeaks, sampling_rate=self.fs)
         elif method in ["dwt", "discrete wavelet transform"]:
-            waves = _dwt_ecg_delineator(self.data, rpeaks=self.peaks, sampling_rate=self.fs)
+            waves = _dwt_ecg_delineator(self.data, rpeaks=self.rpeaks, sampling_rate=self.fs)
 
         else:
             raise ValueError("Method error: ecg_delineate(): 'method' should be one of 'cwt' or 'dwt'.")
@@ -1688,7 +1688,7 @@ class ecg(Signal):
             waves_noNA[feature] = [int(x) for x in waves_noNA[feature] if ~np.isnan(x)]
 
         if check is True:
-            waves = _ecg_delineate_check(waves, self.peaks)
+            waves = _ecg_delineate_check(waves, self.rpeaks)
 
         self.ecg_info = waves
 
